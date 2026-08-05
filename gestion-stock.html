@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chambrelan · Gestion de stock</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='rgb(27,58,84)'/><text x='50' y='70' font-size='58' font-family='Arial' font-weight='900' fill='white' text-anchor='middle'>C</text></svg>">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --navy-950:#0f2438;
+  --navy-800:#173a56;
+  --blue-700:#1f5a89;
+  --blue-600:#2b6ca3;
+  --blue-500:#3f84bd;
+  --blue-100:#e6f0f8;
+  --teal-600:#0e7c86;
+  --teal-100:#e2f4f4;
+  --steel-50:#f4f7f9;
+  --white:#ffffff;
+  --ink-900:#182430;
+  --ink-600:#4c5c6b;
+  --ink-400:#8394a3;
+  --line:#dbe4ec;
+  --line-soft:#eaf0f5;
+  --amber-700:#a3630a;
+  --amber-500:#c77d0a;
+  --amber-100:#fbebd2;
+  --green-700:#166a49;
+  --green-500:#1f8a5f;
+  --green-100:#dff3e8;
+  --red-700:#a3382a;
+  --red-500:#c0392b;
+  --red-100:#fbe7e4;
+  --radius:8px;
+  --radius-lg:12px;
+  --shadow:0 1px 2px rgba(15,36,56,.06), 0 6px 20px rgba(15,36,56,.08);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+}
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--sans);
+  background:var(--steel-50);
+  color:var(--ink-900);
+  font-size:14.5px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+h1,h2,h3{margin:0;}
+table{border-collapse:collapse;width:100%;}
+::selection{background:var(--blue-100);}
+:focus-visible{outline:2.5px solid var(--blue-500); outline-offset:2px;}
+
+/* ============ LAYOUT ============ */
+#app{min-height:100vh;display:flex;flex-direction:column;}
+
+.topbar{
+  background:linear-gradient(180deg,var(--navy-950),var(--navy-800) 130%);
+  color:var(--white);
+  padding:14px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-logo{flex:none;}
+.brand-title{display:flex;flex-direction:column;gap:1px;border-left:1px solid rgba(255,255,255,.25);padding-left:14px;}
+.brand-title .app-name{font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:13.5px;color:#fff;}
+.brand-title .app-sub{font-size:11.5px;color:rgba(255,255,255,.65);letter-spacing:.03em;}
+
+.header-actions{display:flex;align-items:center;gap:8px;}
+.conn-badge{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(46,204,113,.16);border:1px solid rgba(46,204,113,.35);
+  border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:700;color:rgba(255,255,255,.9);
+}
+.conn-badge .dot{width:7px;height:7px;border-radius:50%;background:#2ecc71;flex:none;}
+.conn-badge.offline{background:rgba(224,75,63,.18);border-color:rgba(224,75,63,.4);}
+.conn-badge.offline .dot{background:#e04b3f;}
+.user-chip{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;
+  border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;
+}
+.user-chip:hover{background:rgba(255,255,255,.16);}
+
+.setup-overlay{
+  position:fixed;inset:0;background:rgba(15,36,56,.92);z-index:99999;
+  display:none;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
+}
+.setup-card{
+  background:#fff;border-radius:16px;max-width:640px;width:100%;padding:32px 34px;
+  box-shadow:0 30px 80px rgba(0,0,0,.4);margin:auto;
+}
+.setup-card h2{font-size:19px;font-weight:800;color:var(--navy-800);margin-bottom:10px;}
+.setup-card p{font-size:13.5px;color:var(--ink-600);line-height:1.55;margin:0 0 14px;}
+.setup-card ol{margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:11px;}
+.setup-card li{font-size:13.5px;color:var(--ink-900);line-height:1.5;}
+.setup-card code{
+  background:var(--steel-50);border:1px solid var(--line);border-radius:5px;
+  padding:2px 6px;font-family:var(--mono);font-size:11.5px;display:inline-block;margin-top:4px;word-break:break-all;
+}
+.setup-hint{font-size:12px;color:var(--ink-400);font-style:italic;}
+
+.stat-strip{display:flex;gap:10px;flex-wrap:wrap;}
+.stat-chip{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:999px;
+  padding:6px 14px;
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+  cursor:default;
+}
+.stat-chip b{font-size:15px;font-weight:800;}
+.stat-chip span{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.7);}
+.stat-chip.alert{background:rgba(199,125,10,.22); border-color:rgba(199,125,10,.5); cursor:pointer;}
+.stat-chip.alert b{color:#ffcf8a;}
+.stat-chip.alert:hover{background:rgba(199,125,10,.34);}
+
+.tabs{
+  display:flex;
+  gap:2px;
+  background:var(--white);
+  padding:0 22px;
+  border-bottom:1px solid var(--line);
+  overflow-x:auto;
+}
+.tab-btn{
+  border:none;background:none;
+  padding:13px 18px 11px;
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  color:var(--ink-400);
+  border-bottom:3px solid transparent;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.tab-btn:hover{color:var(--blue-600);}
+.tab-btn.active{color:var(--blue-600);border-bottom-color:var(--blue-600);}
+
+main{flex:1;padding:20px 22px 60px;max-width:1320px;width:100%;margin:0 auto;}
+.tab-panel{display:none;animation:fadein .18s ease;}
+.tab-panel.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+/* ============ TOOLBAR / CONTROLS ============ */
+.toolbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-bottom:14px;
+}
+.search-box{
+  position:relative;flex:1 1 240px;min-width:200px;
+}
+.search-box input{
+  width:100%;padding:9px 12px 9px 32px;
+  border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--white);
+}
+.search-box svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.45;}
+
+.segmented{display:flex;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+.segmented button{
+  border:none;background:none;padding:8px 13px;font-size:12.5px;font-weight:600;color:var(--ink-600);
+  cursor:pointer;border-right:1px solid var(--line);white-space:nowrap;
+}
+.segmented button:last-child{border-right:none;}
+.segmented button.active{background:var(--blue-600);color:#fff;}
+
+.check-inline{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-600);font-weight:600;white-space:nowrap;padding:0 4px;}
+.check-inline input{width:15px;height:15px;accent-color:var(--blue-600);}
+
+.spacer{flex:1;}
+
+/* ============ BUTTONS ============ */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--line);background:var(--white);
+  color:var(--ink-900);
+  padding:9px 14px;border-radius:var(--radius);
+  font-weight:700;font-size:13px;cursor:pointer;
+  transition:background .12s,border-color .12s;
+  white-space:nowrap;
+}
+.btn:hover{border-color:var(--blue-500);color:var(--blue-700);}
+.btn-primary{background:var(--blue-600);border-color:var(--blue-600);color:#fff;}
+.btn-primary:hover{background:var(--blue-700);border-color:var(--blue-700);color:#fff;}
+.btn-ghost{background:transparent;border-color:transparent;}
+.btn-ghost:hover{background:var(--blue-100);}
+.btn-danger{color:var(--red-600);}
+.btn-danger:hover{background:var(--red-100);border-color:var(--red-500);color:var(--red-700);}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+/* ============ CARD / TABLE ============ */
+.card{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.table-wrap{overflow-x:auto;}
+table.data th{
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--ink-400);font-weight:800;padding:11px 14px;border-bottom:1px solid var(--line);
+  background:var(--steel-50);white-space:nowrap;
+}
+table.data th.sortable{cursor:pointer;user-select:none;}
+table.data th.sortable:hover{color:var(--blue-600);}
+table.data td{padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+table.data tbody tr:hover{background:var(--blue-100);}
+table.data tbody tr.row-low{background:var(--amber-100);}
+table.data tbody tr.row-low:hover{background:#f7e3bd;}
+.empty-row td{padding:46px 14px;text-align:center;color:var(--ink-400);}
+.empty-row .empty-cta{margin-top:10px;}
+
+.ref-code{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.01em;}
+.cell-ref{display:flex;align-items:center;gap:8px;}
+.badge{
+  display:inline-block;padding:3px 8px;border-radius:5px;font-size:10.5px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em;flex:none;
+}
+.badge-meca{background:var(--blue-100);color:var(--blue-700);}
+.badge-glissiere{background:var(--teal-100);color:var(--teal-600);}
+.badge-entree{background:var(--green-100);color:var(--green-700);}
+.badge-sortie{background:var(--red-100);color:var(--red-700);}
+.badge-correction{background:var(--amber-100);color:var(--amber-700);}
+
+.tag-warning{
+  display:inline-flex;align-items:center;gap:4px;margin-left:8px;
+  background:var(--amber-500);color:#fff;font-size:10px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px;
+}
+.qty-value{font-weight:800;font-size:14.5px;}
+.cell-actions{display:flex;gap:6px;justify-content:flex-end;}
+.mono-small{font-family:var(--mono);font-size:12px;color:var(--ink-600);}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 10px;flex-wrap:wrap;gap:8px;}
+.section-head h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--navy-800);}
+.section-head .totals{font-size:12.5px;color:var(--ink-600);font-weight:600;}
+
+/* ============ INVENTAIRE HEADER ============ */
+.inv-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.inv-summary{display:flex;gap:10px;flex-wrap:wrap;}
+.inv-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.summary-card{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px 16px;min-width:120px;
+}
+.summary-card b{display:block;font-size:20px;font-weight:800;color:var(--navy-800);}
+.summary-card span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-400);font-weight:700;}
+
+/* ============ DIALOGS ============ */
+dialog{
+  border:none;border-radius:var(--radius-lg);padding:0;width:min(460px,92vw);
+  box-shadow:0 20px 60px rgba(15,36,56,.35);
+}
+dialog::backdrop{background:rgba(15,36,56,.55);}
+.dialog-head{
+  padding:16px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.dialog-head h3{font-size:15px;font-weight:800;color:var(--navy-800);}
+.dialog-head button{border:none;background:none;font-size:18px;cursor:pointer;color:var(--ink-400);line-height:1;padding:4px;}
+.dialog-body{padding:18px 20px;display:flex;flex-direction:column;gap:14px;max-height:70vh;overflow-y:auto;}
+.dialog-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:12px;font-weight:700;color:var(--ink-600);}
+.field .hint{font-size:11px;color:var(--ink-400);font-weight:500;}
+.field input,.field select,.field textarea{
+  border:1px solid var(--line);border-radius:var(--radius);padding:9px 11px;background:var(--white);
+}
+.field textarea{resize:vertical;min-height:60px;}
+.field.error input,.field.error select{border-color:var(--red-500);}
+.field-error-msg{font-size:11.5px;color:var(--red-600);font-weight:700;display:none;}
+.field.error .field-error-msg{display:block;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ref-context{
+  background:var(--steel-50);border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px 12px;display:flex;flex-direction:column;gap:2px;
+}
+.ref-context .rc-code{font-family:var(--mono);font-weight:800;font-size:14px;color:var(--navy-800);}
+.ref-context .rc-desig{font-size:12.5px;color:var(--ink-600);}
+.result-preview{
+  font-size:13px;font-weight:700;color:var(--blue-700);background:var(--blue-100);
+  border-radius:var(--radius);padding:8px 12px;
+}
+.result-preview.negative{color:var(--red-700);background:var(--red-100);}
+
+/* ============ TOASTS ============ */
+#toast-container{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:9999;}
+.toast{
+  background:var(--navy-900,#182430);color:#fff;padding:11px 16px;border-radius:8px;
+  font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);
+  display:flex;align-items:center;gap:8px;animation:toastin .15s ease;max-width:320px;
+}
+.toast.success{background:var(--green-700);}
+.toast.error{background:var(--red-700);}
+.toast.info{background:var(--navy-800);}
+@keyframes toastin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* ============ FOOTER ============ */
+footer.app-footer{
+  text-align:center;font-size:11.5px;color:var(--ink-400);padding:18px 22px 30px;
+}
+
+/* ============ PRINT ============ */
+.print-only{display:none;}
+@media print{
+  .topbar,.tabs,.toolbar,.inv-toolbar .inv-actions,footer.app-footer,dialog,#toast-container,.cell-actions,.section-head .subtitle-actions{display:none !important;}
+  main{padding:0;max-width:100%;}
+  .print-only{display:block;}
+  .card{box-shadow:none;border:1px solid #999;}
+  body{background:#fff;font-size:11.5px;}
+  table.data th{background:#eee !important;color:#111 !important;}
+  .tag-warning{background:#666 !important;}
+  .print-header{
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:2px solid #163a56;padding-bottom:10px;margin-bottom:16px;
+  }
+  .print-header .ph-title{font-size:18px;font-weight:800;color:#163a56;}
+  .print-header .ph-date{font-size:12px;color:#444;}
+  .tab-panel{display:none !important;}
+  .tab-panel.active{display:block !important;}
+}
+
+@media (max-width:720px){
+  .two-col{grid-template-columns:1fr;}
+  .topbar{padding:12px 14px;}
+  main{padding:16px 14px 50px;}
+  .tabs{padding:0 14px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-logo" width="180" height="46" viewBox="0 0 300 76" xmlns="http://www.w3.org/2000/svg" aria-label="Chambrelan">
+        <text x="0" y="40" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="38" letter-spacing="-1" fill="#ffffff">CHAMBRELAN</text>
+        <polygon points="0,50 205,50 205,58 0,58" fill="#5b93c4"/>
+        <polygon points="205,42 205,66 245,54" fill="#5b93c4"/>
+      </svg>
+      <div class="brand-title">
+        <span class="app-name">Gestion de stock</span>
+        <span class="app-sub">Pièces mécaniques &amp; glissières</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="conn-badge" id="connBadge"><span class="dot"></span><span class="conn-text">Connexion…</span></div>
+      <button type="button" class="user-chip" id="userChip">👤 Définir un nom</button>
+    </div>
+    <div class="stat-strip" id="statStrip"></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="references">Références</button>
+    <button class="tab-btn" data-tab="historique">Historique</button>
+    <button class="tab-btn" data-tab="inventaire">Inventaire</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ ONGLET REFERENCES ============ -->
+    <section class="tab-panel active" id="tab-references">
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btnNewRef">+ Nouvelle référence</button>
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8394a3" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="refSearch" placeholder="Rechercher une référence, désignation, emplacement…">
+        </div>
+        <div class="segmented" id="refCatFilter">
+          <button class="active" data-cat="all">Toutes</button>
+          <button data-cat="meca">Pièces mécaniques</button>
+          <button data-cat="glissiere">Glissières</button>
+        </div>
+        <label class="check-inline"><input type="checkbox" id="refLowStockOnly"> Stock bas uniquement</label>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="ref">Référence</th>
+                <th class="sortable" data-sort="designation">Désignation</th>
+                <th>Emplacement</th>
+                <th class="sortable" data-sort="quantity">Quantité</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="refTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ONGLET HISTORIQUE ============ -->
+    <section class="tab-panel" id="tab-historique">
+      <div class="toolbar">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8394a3" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="histSearch" placeholder="Rechercher par référence ou désignation…">
+        </div>
+        <div class="segmented" id="histTypeFilter">
+          <button class="active" data-type="all">Tous</button>
+          <button data-type="entree">Entrées</button>
+          <button data-type="sortie">Sorties</button>
+          <button data-type="correction">Corrections</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn" id="btnExportHistCsv">Exporter CSV</button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Référence</th>
+                <th>Désignation</th>
+                <th>Catégorie</th>
+                <th>Type</th>
+                <th>Quantité</th>
+                <th>Stock résultant</th>
+                <th>Auteur</th>
+                <th>Motif</th>
+              </tr>
+            </thead>
+            <tbody id="histTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ONGLET INVENTAIRE ============ -->
+    <section class="tab-panel" id="tab-inventaire">
+      <div class="print-header print-only">
+        <div class="ph-title">CHAMBRELAN — Fiche d'inventaire</div>
+        <div class="ph-date" id="printDate"></div>
+      </div>
+
+      <div class="inv-toolbar">
+        <div class="inv-summary" id="invSummary"></div>
+        <div class="inv-actions">
+          <button class="btn" id="btnBackupExport">Sauvegarder (JSON)</button>
+          <button class="btn" id="btnBackupImport">Restaurer (JSON)</button>
+          <input type="file" id="fileImport" accept="application/json" style="display:none;">
+          <button class="btn" id="btnExportInvCsv">Exporter CSV</button>
+          <button class="btn btn-primary" id="btnPrint">Imprimer la fiche</button>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Pièces mécaniques</h2>
+        <span class="totals" id="totalsMeca"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Référence</th><th>Désignation</th><th>Emplacement</th><th>Quantité</th></tr></thead>
+            <tbody id="invMecaBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Glissières</h2>
+        <span class="totals" id="totalsGlissiere"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Référence</th><th>Désignation</th><th>Emplacement</th><th>Quantité</th></tr></thead>
+            <tbody id="invGlissiereBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">Chambrelan — Application interne de gestion de stock · données synchronisées en temps réel entre tous les postes connectés</footer>
+</div>
+
+<!-- ============ DIALOG : REFERENCE ============ -->
+<dialog id="dlgRef">
+  <form id="formRef">
+    <div class="dialog-head">
+      <h3 id="dlgRefTitle">Nouvelle référence</h3>
+      <button type="button" data-close-dialog="dlgRef">✕</button>
+    </div>
+    <div class="dialog-body">
+      <input type="hidden" id="refId">
+      <div class="field" id="fieldRefCode">
+        <label for="refCode">Référence *</label>
+        <input type="text" id="refCode" placeholder="Ex. R91-450" required>
+        <div class="field-error-msg">Cette référence existe déjà.</div>
+      </div>
+      <div class="field" id="fieldRefDesig">
+        <label for="refDesignation">Désignation *</label>
+        <input type="text" id="refDesignation" placeholder="Ex. Glissière télescopique 450mm charge lourde" required>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="refCategory">Catégorie *</label>
+          <select id="refCategory" required>
+            <option value="meca">Pièce mécanique</option>
+            <option value="glissiere">Glissière</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="refLocation">Emplacement</label>
+          <input type="text" id="refLocation" placeholder="Ex. Atelier A - R3 - E2">
+        </div>
+      </div>
+      <div class="two-col" id="rowQtyCreate">
+        <div class="field">
+          <label for="refQuantity">Quantité initiale</label>
+          <input type="number" id="refQuantity" min="0" step="1" value="0">
+        </div>
+        <div class="field">
+          <label for="refMinStock">Seuil d'alerte (optionnel)</label>
+          <input type="number" id="refMinStock" min="0" step="1" placeholder="Ex. 5">
+        </div>
+      </div>
+      <div class="field" id="rowMinStockOnly" style="display:none;">
+        <label for="refMinStock2">Seuil d'alerte (optionnel)</label>
+        <input type="number" id="refMinStock2" min="0" step="1" placeholder="Ex. 5">
+        <div class="hint">La quantité en stock se modifie via un mouvement (bouton « Mouvement » sur la référence).</div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" data-close-dialog="dlgRef">Annuler</button>
+      <button type="submit" class="btn btn-primary" id="btnRefSubmit">Ajouter la référence</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============ DIALOG : MOUVEMENT ============ -->
+<dialog id="dlgMove">
+  <form id="formMove">
+    <div class="dialog-head">
+      <h3>Mouvement de stock</h3>
+      <button type="button" data-close-dialog="dlgMove">✕</button>
+    </div>
+    <div class="dialog-body">
+      <input type="hidden" id="moveRefId">
+      <div class="ref-context">
+        <span class="rc-code" id="moveRefCode"></span>
+        <span class="rc-desig" id="moveRefDesig"></span>
+      </div>
+      <div class="field">
+        <label>Type de mouvement</label>
+        <div class="segmented" id="moveTypeSeg" style="width:100%;">
+          <button type="button" class="active" data-mtype="entree" style="flex:1;">Entrée</button>
+          <button type="button" data-mtype="sortie" style="flex:1;">Sortie</button>
+          <button type="button" data-mtype="correction" style="flex:1;">Correction</button>
+        </div>
+      </div>
+      <div class="field" id="fieldMoveQty">
+        <label for="moveQuantity" id="labelMoveQty">Quantité à ajouter</label>
+        <input type="number" id="moveQuantity" min="1" step="1" required>
+        <div class="field-error-msg" id="moveQtyError">Quantité insuffisante en stock.</div>
+      </div>
+      <div class="result-preview" id="moveResultPreview">Stock actuel : —</div>
+      <div class="field">
+        <label for="moveDate">Date</label>
+        <input type="datetime-local" id="moveDate" required>
+      </div>
+      <div class="field">
+        <label for="moveNote">Motif (optionnel)</label>
+        <textarea id="moveNote" placeholder="Ex. Réception fournisseur, sortie OF-2451…"></textarea>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" data-close-dialog="dlgMove">Annuler</button>
+      <button type="submit" class="btn btn-primary">Valider le mouvement</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============ DIALOG : UTILISATEUR ============ -->
+<dialog id="dlgUser">
+  <form id="formUser">
+    <div class="dialog-head">
+      <h3>Votre nom</h3>
+      <button type="button" data-close-dialog="dlgUser">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="field">
+        <label for="userNameInput">Comment souhaitez-vous apparaître dans l'historique ?</label>
+        <input type="text" id="userNameInput" placeholder="Ex. Alan" required>
+        <div class="hint">Ce nom sera visible par vos collègues sur chaque mouvement que vous enregistrez.</div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="submit" class="btn btn-primary">Continuer</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============ ECRAN DE CONFIGURATION FIREBASE ============ -->
+<div id="setupOverlay" class="setup-overlay">
+  <div class="setup-card">
+    <h2>Configuration Firebase requise</h2>
+    <p>Cette application partage le stock en temps réel entre tous les postes via Firebase (gratuit). Un seul membre de l'équipe doit faire cette configuration une fois (~5 minutes) :</p>
+    <ol>
+      <li>Aller sur <strong>console.firebase.google.com</strong>, se connecter avec un compte Google et créer un projet (ex. « chambrelan-stock »).</li>
+      <li><strong>Realtime Database</strong> → Créer une base de données → région Europe → démarrer en mode test.</li>
+      <li><strong>Authentication → Sign-in method</strong> → activer le fournisseur <strong>Anonyme</strong>.</li>
+      <li><strong>Realtime Database → Règles</strong>, coller puis publier :<br><code>{"rules":{".read":"auth != null",".write":"auth != null"}}</code></li>
+      <li><strong>Paramètres du projet</strong> (⚙) → Vos applications → icône Web « &lt;/&gt; » → enregistrer une application → copier l'objet <code>firebaseConfig</code>.</li>
+      <li>Ouvrir ce fichier dans un éditeur de texte, repérer <code>CONFIGURATION FIREBASE</code> en haut du script, et remplacer les 7 valeurs par celles copiées. Enregistrer.</li>
+      <li>Partager ce même fichier (une fois configuré) à toute l'équipe — chacun l'ouvre dans son navigateur.</li>
+    </ol>
+    <p class="setup-hint">Une fois configuré, cet écran ne s'affichera plus.</p>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIGURATION FIREBASE
+   Remplacez les 7 valeurs ci-dessous par celles de VOTRE projet
+   Firebase (Console Firebase > Paramètres du projet > Vos
+   applications > objet firebaseConfig). Tant que ces valeurs ne
+   sont pas renseignées, l'application affiche un guide de
+   configuration au démarrage.
+============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA15-m4Mx2CXDgVPEhaA7WMgMaZB5EBrFo",
+  authDomain: "chambrelan-stock.firebaseapp.com",
+  databaseURL: "https://chambrelan-stock-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "chambrelan-stock",
+  storageBucket: "chambrelan-stock.firebasestorage.app",
+  messagingSenderId: "586828668667",
+  appId: "1:586828668667:web:4f4b626803f46320169a5e"
+};
+const CONFIG_IS_PLACEHOLDER = Object.values(firebaseConfig).some(v => String(v).startsWith("COLLER_ICI"));
+
+const CATEGORY_LABELS = { meca:"Pièce mécanique", glissiere:"Glissière" };
+let state = { references: [], movements: [] };
+let db = null;
+let loadedRefs = false, loadedMovs = false;
+
+function initApp(){
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  const auth = firebase.auth();
+
+  auth.signInAnonymously().catch(err=>{
+    console.error(err);
+    showToast("Connexion Firebase impossible : vérifiez que l'authentification anonyme est activée dans la console (Authentication > Sign-in method).", "error");
+  });
+
+  auth.onAuthStateChanged(user=>{
+    if (user) attachListeners();
+  });
+
+  db.ref(".info/connected").on("value", snap=> setConnectionStatus(!!snap.val()));
+}
+
+function attachListeners(){
+  db.ref("references").on("value", snap=>{
+    const val = snap.val() || {};
+    state.references = Object.keys(val).map(k=> Object.assign({id:k}, val[k]));
+    loadedRefs = true;
+    renderAll();
+  }, err=>{ console.error(err); showToast("Erreur de synchronisation (références).", "error"); });
+
+  db.ref("movements").on("value", snap=>{
+    const val = snap.val() || {};
+    state.movements = Object.keys(val).map(k=> Object.assign({id:k}, val[k]));
+    loadedMovs = true;
+    renderAll();
+  }, err=>{ console.error(err); showToast("Erreur de synchronisation (historique).", "error"); });
+}
+
+function setConnectionStatus(connected){
+  const badge = document.getElementById("connBadge");
+  if (!badge) return;
+  badge.classList.toggle("offline", !connected);
+  badge.querySelector(".conn-text").textContent = connected ? "Synchronisé" : "Hors ligne";
+}
+
+/* ============================================================
+   IDENTITE UTILISATEUR (locale, non synchronisée)
+============================================================ */
+const USERNAME_KEY = "chambrelan_stock_username";
+function getUsername(){ return localStorage.getItem(USERNAME_KEY) || ""; }
+function setUsername(name){ localStorage.setItem(USERNAME_KEY, name); updateUsernameChip(); }
+function updateUsernameChip(){
+  const chip = document.getElementById("userChip");
+  if (chip) chip.textContent = "👤 " + (getUsername() || "Définir un nom");
+}
+function openUserDialog(){
+  document.getElementById("userNameInput").value = getUsername();
+  dlgUser.showModal();
+  document.getElementById("userNameInput").focus();
+}
+
+function uid(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "id-" + Date.now() + "-" + Math.random().toString(36).slice(2,9);
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function normalize(str){
+  return (str || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+function formatDateTime(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return "—";
+  return d.toLocaleString("fr-FR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+function formatNumber(n){
+  return Number(n).toLocaleString("fr-FR");
+}
+function nowForInput(){
+  const d = new Date();
+  d.setSeconds(0,0);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+function isLowStock(ref){
+  return ref.minStock !== null && ref.minStock !== undefined && ref.minStock !== "" && Number(ref.quantity) <= Number(ref.minStock);
+}
+function escapeHtml(str){
+  return (str || "").toString()
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function showToast(message, type){
+  type = type || "info";
+  const container = document.getElementById("toast-container");
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(()=>{ el.style.transition="opacity .25s"; el.style.opacity="0"; setTimeout(()=>el.remove(),260); }, 2600);
+}
+
+/* ============================================================
+   NAVIGATION ONGLETS
+============================================================ */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> switchTab(btn.dataset.tab));
+});
+function switchTab(tabName){
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tabName));
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tabName));
+}
+
+/* ============================================================
+   DIALOGS GENERIQUES
+============================================================ */
+document.querySelectorAll("[data-close-dialog]").forEach(btn=>{
+  btn.addEventListener("click", ()=> document.getElementById(btn.dataset.closeDialog).close());
+});
+document.querySelectorAll("dialog").forEach(dlg=>{
+  dlg.addEventListener("click", (e)=>{ if (e.target === dlg) dlg.close(); });
+});
+
+const dlgUser = document.getElementById("dlgUser");
+document.getElementById("userChip").addEventListener("click", openUserDialog);
+document.getElementById("formUser").addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const name = document.getElementById("userNameInput").value.trim();
+  if (!name) return;
+  setUsername(name);
+  dlgUser.close();
+});
+
+/* ============================================================
+   ONGLET REFERENCES : ETAT DES FILTRES
+============================================================ */
+const refFilters = { search:"", category:"all", lowStockOnly:false, sortKey:"ref", sortDir:1 };
+
+document.getElementById("refSearch").addEventListener("input", (e)=>{
+  refFilters.search = e.target.value; renderReferences();
+});
+document.getElementById("refLowStockOnly").addEventListener("change", (e)=>{
+  refFilters.lowStockOnly = e.target.checked; renderReferences();
+});
+document.querySelectorAll("#refCatFilter button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#refCatFilter button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    refFilters.category = btn.dataset.cat;
+    renderReferences();
+  });
+});
+document.querySelectorAll("th.sortable").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const key = th.dataset.sort;
+    if (refFilters.sortKey === key) refFilters.sortDir *= -1;
+    else { refFilters.sortKey = key; refFilters.sortDir = 1; }
+    renderReferences();
+  });
+});
+
+function getFilteredReferences(){
+  let list = state.references.slice();
+  if (refFilters.category !== "all") list = list.filter(r=>r.category===refFilters.category);
+  if (refFilters.lowStockOnly) list = list.filter(isLowStock);
+  if (refFilters.search){
+    const q = normalize(refFilters.search);
+    list = list.filter(r=> normalize(r.ref).includes(q) || normalize(r.designation).includes(q) || normalize(r.location).includes(q));
+  }
+  const {sortKey, sortDir} = refFilters;
+  list.sort((a,b)=>{
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === "quantity"){ va = Number(va); vb = Number(vb); }
+    else { va = normalize(va); vb = normalize(vb); }
+    if (va < vb) return -1*sortDir;
+    if (va > vb) return 1*sortDir;
+    return 0;
+  });
+  return list;
+}
+
+function renderReferences(){
+  const tbody = document.getElementById("refTableBody");
+  const list = getFilteredReferences();
+
+  if (list.length === 0){
+    tbody.innerHTML = state.references.length === 0
+      ? `<tr class="empty-row"><td colspan="5">Aucune référence enregistrée pour le moment.<div class="empty-cta"><button class="btn btn-primary" id="emptyAddRef">+ Ajouter votre première référence</button></div></td></tr>`
+      : `<tr class="empty-row"><td colspan="5">Aucune référence ne correspond à votre recherche ou aux filtres actifs.</td></tr>`;
+    const emptyBtn = document.getElementById("emptyAddRef");
+    if (emptyBtn) emptyBtn.addEventListener("click", openNewRefDialog);
+    return;
+  }
+
+  tbody.innerHTML = list.map(ref=>{
+    const low = isLowStock(ref);
+    const catBadge = ref.category === "meca"
+      ? `<span class="badge badge-meca">Méca</span>`
+      : `<span class="badge badge-glissiere">Gliss.</span>`;
+    return `<tr class="${low ? "row-low":""}">
+      <td><div class="cell-ref">${catBadge}<span class="ref-code">${escapeHtml(ref.ref)}</span></div></td>
+      <td>${escapeHtml(ref.designation)}</td>
+      <td>${ref.location ? escapeHtml(ref.location) : "—"}</td>
+      <td><span class="qty-value">${formatNumber(ref.quantity)}</span>${low ? '<span class="tag-warning">Stock bas</span>' : ""}</td>
+      <td class="cell-actions">
+        <button class="btn btn-sm btn-primary" data-action="move" data-id="${ref.id}">Mouvement</button>
+        <button class="btn btn-sm" data-action="edit" data-id="${ref.id}">Modifier</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-id="${ref.id}">Suppr.</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("refTableBody").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const ref = state.references.find(r=>r.id===id);
+  if (!ref) return;
+  if (btn.dataset.action === "move") openMoveDialog(ref);
+  if (btn.dataset.action === "edit") openEditRefDialog(ref);
+  if (btn.dataset.action === "delete") deleteReference(ref);
+});
+
+/* ============================================================
+   DIALOG REFERENCE : CREATION / EDITION
+============================================================ */
+const dlgRef = document.getElementById("dlgRef");
+const formRef = document.getElementById("formRef");
+
+document.getElementById("btnNewRef").addEventListener("click", openNewRefDialog);
+
+function openNewRefDialog(){
+  formRef.reset();
+  document.getElementById("refId").value = "";
+  document.getElementById("dlgRefTitle").textContent = "Nouvelle référence";
+  document.getElementById("btnRefSubmit").textContent = "Ajouter la référence";
+  document.getElementById("rowQtyCreate").style.display = "grid";
+  document.getElementById("rowMinStockOnly").style.display = "none";
+  document.getElementById("refCategory").value = "meca";
+  document.getElementById("fieldRefCode").classList.remove("error");
+  document.getElementById("refCode").disabled = false;
+  dlgRef.showModal();
+  document.getElementById("refCode").focus();
+}
+
+function openEditRefDialog(ref){
+  formRef.reset();
+  document.getElementById("refId").value = ref.id;
+  document.getElementById("dlgRefTitle").textContent = "Modifier la référence";
+  document.getElementById("btnRefSubmit").textContent = "Enregistrer";
+  document.getElementById("refCode").value = ref.ref;
+  document.getElementById("refDesignation").value = ref.designation;
+  document.getElementById("refCategory").value = ref.category;
+  document.getElementById("refLocation").value = ref.location || "";
+  document.getElementById("rowQtyCreate").style.display = "none";
+  document.getElementById("rowMinStockOnly").style.display = "flex";
+  document.getElementById("refMinStock2").value = (ref.minStock ?? "");
+  document.getElementById("fieldRefCode").classList.remove("error");
+  dlgRef.showModal();
+  document.getElementById("refDesignation").focus();
+}
+
+formRef.addEventListener("submit", (e)=>{
+  e.preventDefault();
+  if (!db) return;
+  const id = document.getElementById("refId").value;
+  const code = document.getElementById("refCode").value.trim();
+  const designation = document.getElementById("refDesignation").value.trim();
+  const category = document.getElementById("refCategory").value;
+  const location = document.getElementById("refLocation").value.trim();
+
+  const duplicate = state.references.find(r => normalize(r.ref) === normalize(code) && r.id !== id);
+  if (duplicate){
+    document.getElementById("fieldRefCode").classList.add("error");
+    return;
+  }
+  document.getElementById("fieldRefCode").classList.remove("error");
+  const submitBtn = document.getElementById("btnRefSubmit");
+  submitBtn.disabled = true;
+
+  if (id){
+    const minRaw = document.getElementById("refMinStock2").value;
+    db.ref("references/"+id).update({
+      ref: code, designation, category, location,
+      minStock: minRaw === "" ? null : Number(minRaw),
+      updatedAt: new Date().toISOString(),
+      updatedBy: getUsername() || null
+    }).then(()=>{
+      showToast("Référence modifiée.", "success");
+      dlgRef.close();
+    }).catch(err=>{ console.error(err); showToast("Échec de l'enregistrement (vérifiez la connexion).", "error"); })
+    .finally(()=> submitBtn.disabled = false);
+  } else {
+    const qty = Math.max(0, parseInt(document.getElementById("refQuantity").value || "0", 10));
+    const minRaw = document.getElementById("refMinStock").value;
+    const newKey = db.ref("references").push().key;
+    const newRef = {
+      ref: code, designation, category, location,
+      quantity: qty,
+      minStock: minRaw === "" ? null : Number(minRaw),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: getUsername() || null
+    };
+    db.ref("references/"+newKey).set(newRef).then(()=>{
+      if (qty > 0){
+        const movKey = db.ref("movements").push().key;
+        return db.ref("movements/"+movKey).set({
+          refId: newKey, ref: code, designation, category,
+          type: "entree", quantityChange: qty, stockAfter: qty, note: "Stock initial à la création",
+          date: new Date().toISOString(), author: getUsername() || null
+        });
+      }
+    }).then(()=>{
+      showToast("Référence ajoutée.", "success");
+      dlgRef.close();
+    }).catch(err=>{ console.error(err); showToast("Échec de l'enregistrement (vérifiez la connexion).", "error"); })
+    .finally(()=> submitBtn.disabled = false);
+  }
+});
+
+function deleteReference(ref){
+  if (!db) return;
+  const ok = confirm(`Supprimer la référence "${ref.ref}" — ${ref.designation} ?\nCette action est irréversible et s'applique pour toute l'équipe (l'historique déjà enregistré sera conservé).`);
+  if (!ok) return;
+  db.ref("references/"+ref.id).remove()
+    .then(()=> showToast("Référence supprimée.", "info"))
+    .catch(err=>{ console.error(err); showToast("Échec de la suppression (vérifiez la connexion).", "error"); });
+}
+
+/* ============================================================
+   DIALOG MOUVEMENT
+============================================================ */
+const dlgMove = document.getElementById("dlgMove");
+const formMove = document.getElementById("formMove");
+let moveType = "entree";
+
+document.querySelectorAll("#moveTypeSeg button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#moveTypeSeg button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    moveType = btn.dataset.mtype;
+    updateMoveLabels();
+    updateMovePreview();
+  });
+});
+
+function updateMoveLabels(){
+  const label = document.getElementById("labelMoveQty");
+  const qtyInput = document.getElementById("moveQuantity");
+  if (moveType === "entree"){ label.textContent = "Quantité à ajouter"; qtyInput.min = 1; }
+  else if (moveType === "sortie"){ label.textContent = "Quantité à retirer"; qtyInput.min = 1; }
+  else { label.textContent = "Nouvelle quantité totale (comptage)"; qtyInput.min = 0; }
+}
+
+function currentMoveRef(){
+  const id = document.getElementById("moveRefId").value;
+  return state.references.find(r=>r.id===id);
+}
+
+function updateMovePreview(){
+  const ref = currentMoveRef();
+  const preview = document.getElementById("moveResultPreview");
+  const errBox = document.getElementById("moveQtyError");
+  document.getElementById("fieldMoveQty").classList.remove("error");
+  errBox.style.display = "none";
+  if (!ref){ preview.textContent = "Stock actuel : —"; return; }
+  const raw = document.getElementById("moveQuantity").value;
+  const val = raw === "" ? null : Number(raw);
+  let result = ref.quantity;
+  if (val !== null){
+    if (moveType === "entree") result = ref.quantity + val;
+    else if (moveType === "sortie") result = ref.quantity - val;
+    else result = val;
+  }
+  preview.textContent = `Stock actuel : ${formatNumber(ref.quantity)} → Nouveau stock : ${val===null ? formatNumber(ref.quantity) : formatNumber(result)}`;
+  preview.classList.toggle("negative", result < 0);
+}
+
+document.getElementById("moveQuantity").addEventListener("input", updateMovePreview);
+
+function openMoveDialog(ref){
+  formMove.reset();
+  moveType = "entree";
+  document.querySelectorAll("#moveTypeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.mtype==="entree"));
+  document.getElementById("moveRefId").value = ref.id;
+  document.getElementById("moveRefCode").textContent = ref.ref;
+  document.getElementById("moveRefDesig").textContent = ref.designation;
+  document.getElementById("moveDate").value = nowForInput();
+  updateMoveLabels();
+  updateMovePreview();
+  dlgMove.showModal();
+  document.getElementById("moveQuantity").focus();
+}
+
+formMove.addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const ref = currentMoveRef();
+  if (!ref || !db) return;
+  const qtyVal = Number(document.getElementById("moveQuantity").value);
+  const dateVal = document.getElementById("moveDate").value;
+  const note = document.getElementById("moveNote").value.trim();
+  const type = moveType;
+  const submitBtn = formMove.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+
+  let priorQty = 0;
+
+  // Transaction atomique : Firebase relit et réessaie automatiquement en cas
+  // d'écriture concurrente d'un autre poste, ce qui évite les pertes de mise à jour.
+  db.ref("references/"+ref.id+"/quantity").transaction(current=>{
+    const cur = current || 0;
+    priorQty = cur;
+    if (type === "entree") return cur + qtyVal;
+    if (type === "sortie") return (cur - qtyVal < 0) ? undefined : (cur - qtyVal);
+    return qtyVal; // correction : nouvelle quantité absolue
+  }, (error, committed, snapshot)=>{
+    submitBtn.disabled = false;
+    if (error){
+      console.error(error);
+      showToast("Échec du mouvement (vérifiez la connexion).", "error");
+      return;
+    }
+    if (!committed){
+      document.getElementById("fieldMoveQty").classList.add("error");
+      document.getElementById("moveQtyError").style.display = "block";
+      return;
+    }
+    const newQty = snapshot.val();
+    const change = type === "entree" ? qtyVal : type === "sortie" ? -qtyVal : (newQty - priorQty);
+    const movKey = db.ref("movements").push().key;
+    db.ref("movements/"+movKey).set({
+      refId: ref.id, ref: ref.ref, designation: ref.designation, category: ref.category,
+      type, quantityChange: change, stockAfter: newQty, note,
+      date: dateVal ? new Date(dateVal).toISOString() : new Date().toISOString(),
+      author: getUsername() || null
+    });
+    db.ref("references/"+ref.id+"/updatedAt").set(new Date().toISOString());
+    dlgMove.close();
+    showToast("Mouvement enregistré.", "success");
+  });
+});
+
+/* ============================================================
+   ONGLET HISTORIQUE
+============================================================ */
+const histFilters = { search:"", type:"all" };
+
+document.getElementById("histSearch").addEventListener("input", (e)=>{ histFilters.search = e.target.value; renderHistorique(); });
+document.querySelectorAll("#histTypeFilter button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#histTypeFilter button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    histFilters.type = btn.dataset.type;
+    renderHistorique();
+  });
+});
+
+function getFilteredMovements(){
+  let list = state.movements.slice().sort((a,b)=> new Date(b.date) - new Date(a.date));
+  if (histFilters.type !== "all") list = list.filter(m=>m.type===histFilters.type);
+  if (histFilters.search){
+    const q = normalize(histFilters.search);
+    list = list.filter(m=> normalize(m.ref).includes(q) || normalize(m.designation).includes(q));
+  }
+  return list;
+}
+
+const TYPE_LABELS = { entree:"Entrée", sortie:"Sortie", correction:"Correction" };
+
+function renderHistorique(){
+  const tbody = document.getElementById("histTableBody");
+  const list = getFilteredMovements();
+  if (list.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${state.movements.length===0 ? "Aucun mouvement enregistré pour le moment." : "Aucun mouvement ne correspond à votre recherche."}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(m=>{
+    const catBadge = m.category === "meca" ? `<span class="badge badge-meca">Méca</span>` : `<span class="badge badge-glissiere">Gliss.</span>`;
+    const typeBadge = `<span class="badge badge-${m.type}">${TYPE_LABELS[m.type]}</span>`;
+    const sign = m.quantityChange > 0 ? "+" : "";
+    return `<tr>
+      <td class="mono-small">${formatDateTime(m.date)}</td>
+      <td class="ref-code">${escapeHtml(m.ref)}</td>
+      <td>${escapeHtml(m.designation)}</td>
+      <td>${catBadge}</td>
+      <td>${typeBadge}</td>
+      <td><b>${sign}${formatNumber(m.quantityChange)}</b></td>
+      <td>${formatNumber(m.stockAfter)}</td>
+      <td>${m.author ? escapeHtml(m.author) : "—"}</td>
+      <td>${m.note ? escapeHtml(m.note) : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("btnExportHistCsv").addEventListener("click", ()=>{
+  const list = getFilteredMovements();
+  const headers = ["Date","Référence","Désignation","Catégorie","Type","Quantité","Stock résultant","Auteur","Motif"];
+  const rows = list.map(m=>[
+    formatDateTime(m.date), m.ref, m.designation, CATEGORY_LABELS[m.category],
+    TYPE_LABELS[m.type], m.quantityChange, m.stockAfter, m.author || "", m.note || ""
+  ]);
+  downloadCsv("historique-mouvements.csv", headers, rows);
+});
+
+/* ============================================================
+   ONGLET INVENTAIRE
+============================================================ */
+function renderInventaire(){
+  const meca = state.references.filter(r=>r.category==="meca").sort((a,b)=> normalize(a.ref).localeCompare(normalize(b.ref)));
+  const gliss = state.references.filter(r=>r.category==="glissiere").sort((a,b)=> normalize(a.ref).localeCompare(normalize(b.ref)));
+
+  fillInvTable("invMecaBody", meca, "Aucune pièce mécanique enregistrée.");
+  fillInvTable("invGlissiereBody", gliss, "Aucune glissière enregistrée.");
+
+  document.getElementById("totalsMeca").textContent = `${meca.length} référence(s) · ${formatNumber(sumQty(meca))} pièce(s) en stock`;
+  document.getElementById("totalsGlissiere").textContent = `${gliss.length} référence(s) · ${formatNumber(sumQty(gliss))} pièce(s) en stock`;
+
+  const totalRefs = state.references.length;
+  const totalQty = sumQty(state.references);
+  const totalLow = state.references.filter(isLowStock).length;
+  document.getElementById("invSummary").innerHTML = `
+    <div class="summary-card"><b>${totalRefs}</b><span>Références</span></div>
+    <div class="summary-card"><b>${formatNumber(totalQty)}</b><span>Pièces en stock</span></div>
+    <div class="summary-card"><b>${totalLow}</b><span>Alertes stock bas</span></div>
+  `;
+  document.getElementById("printDate").textContent = "Édité le " + new Date().toLocaleDateString("fr-FR", {day:"2-digit",month:"long",year:"numeric"});
+}
+
+function sumQty(list){ return list.reduce((s,r)=> s + Number(r.quantity||0), 0); }
+
+function fillInvTable(bodyId, list, emptyMsg){
+  const tbody = document.getElementById(bodyId);
+  if (list.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="4">${emptyMsg}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(ref=>{
+    const low = isLowStock(ref);
+    return `<tr class="${low ? "row-low":""}">
+      <td class="ref-code">${escapeHtml(ref.ref)}</td>
+      <td>${escapeHtml(ref.designation)}</td>
+      <td>${ref.location ? escapeHtml(ref.location) : "—"}</td>
+      <td><span class="qty-value">${formatNumber(ref.quantity)}</span>${low ? '<span class="tag-warning">Bas</span>' : ""}</td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("btnPrint").addEventListener("click", ()=> window.print());
+
+document.getElementById("btnExportInvCsv").addEventListener("click", ()=>{
+  const headers = ["Référence","Désignation","Catégorie","Emplacement","Quantité","Seuil d'alerte","Stock bas"];
+  const rows = state.references
+    .slice()
+    .sort((a,b)=> a.category.localeCompare(b.category) || normalize(a.ref).localeCompare(normalize(b.ref)))
+    .map(r=>[ r.ref, r.designation, CATEGORY_LABELS[r.category], r.location || "", r.quantity, r.minStock ?? "", isLowStock(r) ? "Oui" : "Non" ]);
+  downloadCsv("inventaire-chambrelan.csv", headers, rows);
+});
+
+/* ============================================================
+   EXPORT / IMPORT CSV & JSON
+============================================================ */
+function csvEscape(val){
+  const s = String(val ?? "");
+  if (/[;"\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function downloadCsv(filename, headers, rows){
+  const lines = [headers.join(";")].concat(rows.map(r=> r.map(csvEscape).join(";")));
+  const csv = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  triggerDownload(blob, filename);
+}
+function triggerDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+document.getElementById("btnBackupExport").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  const dateStr = new Date().toISOString().slice(0,10);
+  triggerDownload(blob, `chambrelan-stock-sauvegarde-${dateStr}.json`);
+  showToast("Sauvegarde téléchargée.", "success");
+});
+
+document.getElementById("btnBackupImport").addEventListener("click", ()=>{
+  document.getElementById("fileImport").click();
+});
+document.getElementById("fileImport").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if (!file || !db) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      if (!Array.isArray(parsed.references) || !Array.isArray(parsed.movements)) throw new Error("format invalide");
+      const ok = confirm("Restaurer cette sauvegarde va remplacer toutes les données actuelles pour TOUTE L'ÉQUIPE (tous les postes connectés). Continuer ?");
+      if (!ok) return;
+      const refsObj = {}; parsed.references.forEach(r=>{ const {id, ...rest} = r; refsObj[id || uid()] = rest; });
+      const movsObj = {}; parsed.movements.forEach(m=>{ const {id, ...rest} = m; movsObj[id || uid()] = rest; });
+      Promise.all([ db.ref("references").set(refsObj), db.ref("movements").set(movsObj) ])
+        .then(()=> showToast("Données restaurées pour toute l'équipe.", "success"))
+        .catch(err=>{ console.error(err); showToast("Échec de la restauration (vérifiez la connexion).", "error"); });
+    }catch(err){
+      showToast("Fichier de sauvegarde invalide.", "error");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ============================================================
+   STATS EN-TETE
+============================================================ */
+function renderStats(){
+  const totalRefs = state.references.length;
+  const totalQty = sumQty(state.references);
+  const lowCount = state.references.filter(isLowStock).length;
+  document.getElementById("statStrip").innerHTML = `
+    <div class="stat-chip"><b>${totalRefs}</b><span>Références</span></div>
+    <div class="stat-chip"><b>${formatNumber(totalQty)}</b><span>Pièces</span></div>
+    <div class="stat-chip ${lowCount>0 ? "alert":""}" id="chipAlert"><b>${lowCount}</b><span>Stock bas</span></div>
+  `;
+  const chip = document.getElementById("chipAlert");
+  if (lowCount > 0){
+    chip.addEventListener("click", ()=>{
+      switchTab("references");
+      document.getElementById("refLowStockOnly").checked = true;
+      refFilters.lowStockOnly = true;
+      renderReferences();
+    });
+  }
+}
+
+/* ============================================================
+   ESCAPE FERME LES DIALOGS OUVERTS (comportement natif <dialog>)
+============================================================ */
+
+/* ============================================================
+   RENDU GLOBAL
+============================================================ */
+function renderAll(){
+  renderStats();
+  renderReferences();
+  renderHistorique();
+  renderInventaire();
+}
+renderAll();
+
+if (CONFIG_IS_PLACEHOLDER){
+  document.getElementById("setupOverlay").style.display = "flex";
+} else {
+  initApp();
+  if (!getUsername()) openUserDialog(); else updateUsernameChip();
+}
+
+})();
+</script>
+</body>
+</html>
